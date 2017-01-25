@@ -2,4 +2,5 @@
     <string name="app_name">Camera</string>
     <string name="save">Save</string>
     <string name="cancel">cancel</string>
+    <string name="enter_the_name">Enter the name:</string>
 </resources>
