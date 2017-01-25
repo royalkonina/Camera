@@ -16,14 +16,38 @@
         />
 
     <ImageButton
+        android:id="@+id/b_swap_camera"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentTop="true"
+        android:layout_margin="15dp"
+        android:background="@color/colorTransparent"
+        android:minHeight="50dp"
+        android:minWidth="50dp"
+        android:src="@android:drawable/ic_menu_view"/>
+
+    <ImageButton
+        android:id="@+id/b_flash"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentTop="true"
+        android:layout_margin="15dp"
+        android:background="@color/colorTransparent"
+        android:minHeight="50dp"
+        android:minWidth="50dp"
+        android:src="@drawable/camera_flash_off_32"/>
+
+    <ImageButton
         android:id="@+id/b_capture"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentRight="true"
         android:layout_centerVertical="true"
-        android:minWidth="70dp"
-        android:minHeight="70dp"
         android:background="@color/colorTransparent"
+        android:minHeight="70dp"
+        android:minWidth="70dp"
         android:src="@android:drawable/ic_menu_camera"
         />
 
