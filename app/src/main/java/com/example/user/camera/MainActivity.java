@@ -1,33 +1,46 @@
 package com.example.user.camera;
 
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Rect;
 import android.hardware.Camera;
 import android.os.Bundle;
 import android.os.Environment;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.OrientationEventListener;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
 
+  public static final String PHOTO_TEMP_FILENAME = "temp_photo.jpg";
+  public static final int MY_PERMISSIONS_REQUEST_CAMERA = 125;
+  public static final int ROTATION_DELTA = 10;
+  private static final int FOCUS_AREA_SIZE = 300;
+
+  private ImageButton flashButton;
   private Camera camera;
   private CameraPreview cameraPreview;
   private FrameLayout preview;
   private ImageButton captureButton;
   private ImageButton swapCameraButton;
-  private ImageButton flashButton;
   private OrientationEventListener orientationEventListener;
 
-  public static final String PHOTO_TEMP_FILENAME = "temp_photo.jpg";
+  private int lastCheckedOrientation = getRequestedOrientation();
   private int cameraID = 0;
   private String flashMode = Camera.Parameters.FLASH_MODE_OFF;
 
@@ -42,8 +55,11 @@ public class MainActivity extends AppCompatActivity {
     preview = (FrameLayout) findViewById(R.id.camera_preview);
     swapCameraButton = (ImageButton) findViewById(R.id.b_swap_camera);
 
-    setupCamera();
-
+    if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+      ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.CAMERA}, MY_PERMISSIONS_REQUEST_CAMERA);
+    } else {
+      setupCamera();
+    }
     captureButton.setOnClickListener(capturePictureListener);
     swapCameraButton.setOnClickListener(new View.OnClickListener() {
       @Override
@@ -80,8 +96,46 @@ public class MainActivity extends AppCompatActivity {
       }
     });
 
+    preview.setOnTouchListener(new View.OnTouchListener() {
+      @Override
+      public boolean onTouch(View view, MotionEvent motionEvent) {
+        if (motionEvent.getAction() == MotionEvent.ACTION_DOWN) {
+          focusOnTouch(motionEvent);
+        }
+        return true;
+      }
+    });
+
     orientationEventListener = new OrientationChangeListener(this);
     orientationEventListener.enable();
+  }
+
+  private void focusOnTouch(MotionEvent event) {
+    if (camera != null) {
+      Camera.Parameters parameters = camera.getParameters();
+      if (parameters.getMaxNumMeteringAreas() > 0) {
+        Rect rect = calculateFocusArea(event.getX(), event.getY());
+        parameters.setFocusMode(Camera.Parameters.FOCUS_MODE_AUTO);
+        List<Camera.Area> meteringAreas = new ArrayList<>();
+        meteringAreas.add(new Camera.Area(rect, 800));
+        parameters.setFocusAreas(meteringAreas);
+        camera.setParameters(parameters);
+      }
+      camera.autoFocus(new Camera.AutoFocusCallback() {
+        @Override
+        public void onAutoFocus(boolean b, Camera camera) {
+          //without that empty callback autoFocus doesn't work ?_?
+          Log.d("autoFocusOnTap", String.valueOf(b));
+        }
+      });
+      // camera.autoFocus(autoFocusTakePictureCallback);
+    }
+  }
+
+  private Rect calculateFocusArea(float x, float y) {
+    int left = (int)(x / preview.getWidth() * 2000 - 1000);
+    int top  = (int)(y / preview.getHeight() * 2000 - 1000);
+    return new Rect(left, top, Math.min(left + FOCUS_AREA_SIZE, 1000), Math.min(top + FOCUS_AREA_SIZE, 1000));
   }
 
   View.OnClickListener capturePictureListener = new View.OnClickListener() {
@@ -111,7 +165,7 @@ public class MainActivity extends AppCompatActivity {
 
   private void setupCamera() {
     camera = getCameraInstance();
-    configureCamera();
+    setCameraParameters();
     cameraPreview = new CameraPreview(this, camera);
     preview.addView(cameraPreview);
     flashButton.setEnabled(cameraID == 0);
@@ -120,7 +174,7 @@ public class MainActivity extends AppCompatActivity {
     }
   }
 
-  private void configureCamera() {
+  private void setCameraParameters() {
     Camera.Parameters parameters = camera.getParameters();
     List<Camera.Size> sizes = parameters.getSupportedPictureSizes();
     Camera.Size size = sizes.get(0);
@@ -200,15 +254,42 @@ public class MainActivity extends AppCompatActivity {
       super(context);
     }
 
-    public OrientationChangeListener(Context context, int rate) {
-      super(context, rate);
-    }
-
     @Override
     public void onOrientationChanged(int orientation) {
-      captureButton.setRotation(orientation);
-      swapCameraButton.setRotation(orientation);
-      flashButton.setRotation(orientation);
+      if (Math.abs(orientation - lastCheckedOrientation) >= 90 - ROTATION_DELTA) {
+        lastCheckedOrientation = (((orientation + 2 * ROTATION_DELTA) / 90) * 90) % 360; //rounding to nearest 0-90-180-270 values
+        int rotation = -(lastCheckedOrientation - 270); //that's because initial orientation is 270
+        ObjectAnimator.ofFloat(captureButton, "rotation", (int) captureButton.getRotation(), rotation).setDuration(500).start();
+        ObjectAnimator.ofFloat(swapCameraButton, "rotation", (int) captureButton.getRotation(), rotation).setDuration(500).start();
+        ObjectAnimator.ofFloat(flashButton, "rotation", (int) captureButton.getRotation(), rotation).setDuration(500).start();
+        /*
+        captureButton.setRotation(rotation);
+        swapCameraButton.setRotation(rotation);
+        flashButton.setRotation(rotation);
+        */
+        Log.d("Orientation/LUO", orientation + " " + lastCheckedOrientation + " " + rotation);
+      }
+    }
+  }
+
+  @Override
+  public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+    switch (requestCode) {
+      case MY_PERMISSIONS_REQUEST_CAMERA: {
+        // If request is cancelled, the result arrays are empty.
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+          // permission was granted, yay!
+          setupCamera();
+        } else {
+          // permission denied, boo!
+          Toast.makeText(this, "Sorry, this permission is necessary", Toast.LENGTH_SHORT).show();
+          finish();
+        }
+        return;
+      }
+
+      // other 'case' lines to check for other
+      // permissions this app might request
     }
   }
 }
