@@ -128,13 +128,12 @@ public class MainActivity extends AppCompatActivity {
           Log.d("autoFocusOnTap", String.valueOf(b));
         }
       });
-      // camera.autoFocus(autoFocusTakePictureCallback);
     }
   }
 
   private Rect calculateFocusArea(float x, float y) {
-    int left = (int)(x / preview.getWidth() * 2000 - 1000);
-    int top  = (int)(y / preview.getHeight() * 2000 - 1000);
+    int left = (int) (x / preview.getWidth() * 2000 - 1000);
+    int top = (int) (y / preview.getHeight() * 2000 - 1000);
     return new Rect(left, top, Math.min(left + FOCUS_AREA_SIZE, 1000), Math.min(top + FOCUS_AREA_SIZE, 1000));
   }
 
@@ -256,18 +255,18 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public void onOrientationChanged(int orientation) {
-      if (Math.abs(orientation - lastCheckedOrientation) >= 90 - ROTATION_DELTA) {
-        lastCheckedOrientation = (((orientation + 2 * ROTATION_DELTA) / 90) * 90) % 360; //rounding to nearest 0-90-180-270 values
-        int rotation = -(lastCheckedOrientation - 270); //that's because initial orientation is 270
+      int newOrientation = (((orientation + 2 * ROTATION_DELTA) / 90) * 90) % 360; //rounding to nearest 0-90-180-270 values
+      if (Math.abs(orientation - lastCheckedOrientation) >= 90 - ROTATION_DELTA && lastCheckedOrientation != newOrientation) {
+        int rotation = -(newOrientation - 270); //that's because initial orientation is 270
+        if (newOrientation - lastCheckedOrientation == 270) {
+          rotation += 360;
+        } else if (lastCheckedOrientation - newOrientation == 270) {
+          rotation -= 360;
+        }
         ObjectAnimator.ofFloat(captureButton, "rotation", (int) captureButton.getRotation(), rotation).setDuration(500).start();
         ObjectAnimator.ofFloat(swapCameraButton, "rotation", (int) captureButton.getRotation(), rotation).setDuration(500).start();
         ObjectAnimator.ofFloat(flashButton, "rotation", (int) captureButton.getRotation(), rotation).setDuration(500).start();
-        /*
-        captureButton.setRotation(rotation);
-        swapCameraButton.setRotation(rotation);
-        flashButton.setRotation(rotation);
-        */
-        Log.d("Orientation/LUO", orientation + " " + lastCheckedOrientation + " " + rotation);
+        lastCheckedOrientation = newOrientation;
       }
     }
   }
@@ -287,9 +286,6 @@ public class MainActivity extends AppCompatActivity {
         }
         return;
       }
-
-      // other 'case' lines to check for other
-      // permissions this app might request
     }
   }
 }
